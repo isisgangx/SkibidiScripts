@@ -466,7 +466,7 @@ loadStringButton.MouseButton1Click:Connect(function()
     -- Revert back after 1 second
     wait(1)
     loadStringButton.BackgroundColor3 = originalColor
-    loadStringButton.Text = "Load Script"
+    loadStringButton.Text = "Stroke"
 end)
 
 -- Bind UI to Right Alt
