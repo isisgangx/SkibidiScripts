@@ -247,7 +247,7 @@ walkThumbCorner.Parent = walkSliderThumb
 local flyButton = Instance.new("TextButton")
 flyButton.Size = UDim2.new(0.35, 0, 0, 30)
 flyButton.Position = UDim2.new(0.1, 0, 0.65, 0) -- Adjusted position
-flyButton.Text = "Fly: OFF"
+flyButton.Text = "Fly: OFF [F]" -- Added key info to button
 flyButton.BackgroundColor3 = Color3.fromRGB(0, 122, 255)
 flyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 flyButton.Font = Enum.Font.SourceSansBold
@@ -293,7 +293,7 @@ noclipButtonCorner.Parent = noclipButton
 local walkSpeedButton = Instance.new("TextButton")
 walkSpeedButton.Size = UDim2.new(0.35, 0, 0, 30) -- Changed from 0.8 to 0.35 to match other buttons
 walkSpeedButton.Position = UDim2.new(0.1, 0, 0.82, 0)
-walkSpeedButton.Text = "Walk Speed: OFF"
+walkSpeedButton.Text = "Walk Speed: OFF [X]" -- Added key info to button
 walkSpeedButton.BackgroundColor3 = Color3.fromRGB(0, 202, 78)
 walkSpeedButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 walkSpeedButton.Font = Enum.Font.SourceSansBold
@@ -475,6 +475,12 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 
     if input.KeyCode == Enum.KeyCode.RightAlt then
         toggleUI()
+    elseif input.KeyCode == Enum.KeyCode.F then
+        -- NEW: F key to toggle fly
+        toggleFly()
+    elseif input.KeyCode == Enum.KeyCode.X then
+        -- NEW: X key to toggle walk speed
+        toggleWalkSpeed()
     end
 end)
 
@@ -614,7 +620,7 @@ end)
 local function enableFly()
     if flying then return end -- Prevent multiple flying states
     flying = true
-    flyButton.Text = "Fly: ON"
+    flyButton.Text = "Fly: ON [F]" -- Updated text with key info
     humanoid.PlatformStand = true -- Disable gravity for the character
 
     -- Create a BodyVelocity for movement
@@ -653,23 +659,21 @@ local function enableFly()
             if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
                 direction = direction + Vector3.new(0, 1, 0)
             end
-            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-                direction = direction + Vector3.new(0, -1, 0)
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+                direction = direction - Vector3.new(0, 1, 0)
             end
 
-            -- Normalize direction and apply speed
+            -- Normalize the direction vector (to keep consistent speed in all directions)
             if direction.Magnitude > 0 then
-                direction = direction.Unit * flySpeed
+                direction = direction.Unit
             end
 
-            -- Update velocity
-            if bodyVelocity then
-                bodyVelocity.Velocity = direction
-            end
-            if bodyGyro then
-                bodyGyro.CFrame = CFrame.new(rootPart.Position, rootPart.Position + camera.CFrame.LookVector)
-            end
-
+            -- Apply velocity in the direction of movement
+            bodyVelocity.Velocity = direction * flySpeed
+            
+            -- Update BodyGyro to maintain orientation with camera
+            bodyGyro.CFrame = CFrame.new(Vector3.new(0, 0, 0), camera.CFrame.LookVector)
+            
             wait()
         end
     end)
@@ -679,10 +683,10 @@ end
 local function disableFly()
     if not flying then return end
     flying = false
-    flyButton.Text = "Fly: OFF"
+    flyButton.Text = "Fly: OFF [F]"
     humanoid.PlatformStand = false
     
-    -- Remove the BodyVelocity and BodyGyro
+    -- Remove the flying instances
     if bodyVelocity then
         bodyVelocity:Destroy()
         bodyVelocity = nil
@@ -693,8 +697,8 @@ local function disableFly()
     end
 end
 
--- Function to toggle flying state
-local function toggleFly()
+-- Function to toggle flying
+function toggleFly()
     if flying then
         disableFly()
     else
@@ -702,87 +706,118 @@ local function toggleFly()
     end
 end
 
--- Function to toggle noclip
-local function toggleNoclip()
+-- Function to toggle NoClip
+local function toggleNoClip()
     noclip = not noclip
     
-    -- Update button text
-    noclipButton.Text = noclip and "NoClip: ON" or "NoClip: OFF"
-    
-    -- Handle noclip connection
     if noclip then
-        -- Create noclip connection
+        noclipButton.Text = "NoClip: ON"
+        
+        -- Connect NoClip function to RunService
         noclipConnection = game:GetService("RunService").Stepped:Connect(function()
-            if character and character:IsDescendantOf(workspace) then
+            if character then
                 for _, part in pairs(character:GetDescendants()) do
-                    if part:IsA("BasePart") then
+                    if part:IsA("BasePart") and part.CanCollide then
                         part.CanCollide = false
                     end
                 end
             end
         end)
     else
-        -- Disconnect noclip
+        noclipButton.Text = "NoClip: OFF"
+        
+        -- Disconnect NoClip
         if noclipConnection then
             noclipConnection:Disconnect()
             noclipConnection = nil
         end
         
         -- Reset collision
-        for _, part in pairs(character:GetDescendants()) do
-            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                part.CanCollide = true
+        if character then
+            for _, part in pairs(character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
             end
         end
     end
 end
 
 -- Function to toggle walk speed
-local function toggleWalkSpeed()
+function toggleWalkSpeed()
     walkSpeedEnabled = not walkSpeedEnabled
     
-    -- Update button text
-    walkSpeedButton.Text = walkSpeedEnabled and "Walk Speed: ON" or "Walk Speed: OFF"
-    
-    -- Set humanoid walk speed
-    if humanoid then
-        humanoid.WalkSpeed = walkSpeedEnabled and customWalkSpeed or defaultWalkSpeed
+    if walkSpeedEnabled then
+        walkSpeedButton.Text = "Walk Speed: ON [X]"
+        humanoid.WalkSpeed = customWalkSpeed
+    else
+        walkSpeedButton.Text = "Walk Speed: OFF [X]"
+        humanoid.WalkSpeed = defaultWalkSpeed
     end
 end
 
--- Set up button clicks
+-- Connect buttons to their toggle functions
 flyButton.MouseButton1Click:Connect(toggleFly)
-noclipButton.MouseButton1Click:Connect(toggleNoclip)
+noclipButton.MouseButton1Click:Connect(toggleNoClip)
 walkSpeedButton.MouseButton1Click:Connect(toggleWalkSpeed)
 
--- Handle character respawn
+-- Handle character respawning
 player.CharacterAdded:Connect(function(newCharacter)
     character = newCharacter
     humanoid = character:WaitForChild("Humanoid")
     rootPart = character:WaitForChild("HumanoidRootPart")
     
-    -- Reset flying
+    -- Disable flying when character respawns
     if flying then
         disableFly()
     end
     
-    -- Reset noclip
-    if noclip and noclipConnection then
-        noclipConnection:Disconnect()
-        noclipConnection = nil
-        noclip = false
-        noclipButton.Text = "NoClip: OFF"
-    end
-    
-    -- Apply walk speed if enabled
+    -- Re-enable walk speed if it was enabled
     if walkSpeedEnabled then
         humanoid.WalkSpeed = customWalkSpeed
     end
+    
+    -- Re-enable NoClip if it was enabled
+    if noclip and noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = game:GetService("RunService").Stepped:Connect(function()
+            if character then
+                for _, part in pairs(character:GetDescendants()) do
+                    if part:IsA("BasePart") and part.CanCollide then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    end
 end)
 
--- Final position animation
-wait(0.5)
-slideIn:Play()
+-- Anti-AFK (prevent Roblox from kicking player for inactivity)
+local antiAFK = game:GetService("Players").LocalPlayer.Idled:Connect(function()
+    game:GetService("VirtualUser"):Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+    wait(1)
+    game:GetService("VirtualUser"):Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+end)
 
--- Print success message to console
-print("SkibidiScript loaded successfully!")
+-- Clean up if the script is terminated
+screenGui.AncestryChanged:Connect(function(_, newParent)
+    if not newParent then
+        -- Clean up when the GUI is removed
+        if flying then
+            disableFly()
+        end
+        
+        if noclipConnection then
+            noclipConnection:Disconnect()
+        end
+        
+        if antiAFK then
+            antiAFK:Disconnect()
+        end
+        
+        -- Reset walk speed
+        if humanoid and walkSpeedEnabled then
+            humanoid.WalkSpeed = defaultWalkSpeed
+        end
+    end
+end)
