@@ -20,6 +20,7 @@ end
 local screenGui = Instance.new("ScreenGui")
 screenGui.Parent = player.PlayerGui
 screenGui.Name = "FlyUI"
+screenGui.ResetOnSpawn = false
 
 -- Text Animation at the Beginning
 local textLabel = Instance.new("TextLabel")
@@ -763,30 +764,55 @@ walkSpeedButton.MouseButton1Click:Connect(toggleWalkSpeed)
 
 -- Handle character respawning
 player.CharacterAdded:Connect(function(newCharacter)
+    -- Update character references
     character = newCharacter
     humanoid = character:WaitForChild("Humanoid")
     rootPart = character:WaitForChild("HumanoidRootPart")
     
-    -- Disable flying when character respawns
+    -- Reset flying state and clean up
     if flying then
-        disableFly()
+        flying = false
+        flyButton.Text = "Fly: OFF [F]"
+        
+        if bodyVelocity then
+            bodyVelocity:Destroy()
+            bodyVelocity = nil
+        end
+        if bodyGyro then
+            bodyGyro:Destroy()
+            bodyGyro = nil
+        end
     end
     
-    -- Re-enable walk speed if it was enabled
+    -- Apply walk speed settings
     if walkSpeedEnabled then
         humanoid.WalkSpeed = customWalkSpeed
+    else
+        humanoid.WalkSpeed = defaultWalkSpeed
     end
     
-    -- Re-enable NoClip if it was enabled
-    if noclip and noclipConnection then
+    -- Handle noclip
+    if noclipConnection then
         noclipConnection:Disconnect()
-        noclipConnection = game:GetService("RunService").Stepped:Connect(function()
-            if character then
-                for _, part in pairs(character:GetDescendants()) do
-                    if part:IsA("BasePart") and part.CanCollide then
-                        part.CanCollide = false
+        noclipConnection = nil
+    end
+    
+    -- Delay applying noclip to prevent floating
+    if noclip then
+        spawn(function()
+            wait(0.1) -- Shorter delay to minimize disruption
+            
+            -- Only apply noclip if it's still enabled
+            if noclip then
+                noclipConnection = game:GetService("RunService").Stepped:Connect(function()
+                    if character and character.Parent then
+                        for _, part in pairs(character:GetDescendants()) do
+                            if part:IsA("BasePart") and part.CanCollide then
+                                part.CanCollide = false
+                            end
+                        end
                     end
-                end
+                end)
             end
         end)
     end
