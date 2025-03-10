@@ -376,7 +376,7 @@ local bodyVelocity, bodyGyro
 
 -- Walk Speed Variables
 local defaultWalkSpeed = 16 -- Default Roblox walk speed
-local customWalkSpeed = 16 -- Initial custom walk speed
+local customWalkSpeed = 50 -- Initial custom walk speed
 local walkSpeedEnabled = false -- Walk speed hack toggle
 
 -- NoClip Variables
