@@ -336,6 +336,72 @@ local loadStringButtonCorner = Instance.new("UICorner")
 loadStringButtonCorner.CornerRadius = UDim.new(0.2, 0)
 loadStringButtonCorner.Parent = loadStringButton
 
+-- NEW: Discord Button
+local discordButton = Instance.new("TextButton")
+discordButton.Size = UDim2.new(0, 80, 0, 10) -- Small button size
+discordButton.Position = UDim2.new(0.5, -40, 0.95, 0) -- Centered at bottom of frame
+discordButton.Text = "Discord"
+discordButton.BackgroundColor3 = Color3.fromRGB(114, 137, 218) -- Discord blue color
+discordButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+discordButton.Font = Enum.Font.SourceSansBold
+discordButton.TextSize = 14
+discordButton.Parent = frame
+
+-- Add shadow to Discord button
+local discordButtonShadow = Instance.new("UIStroke")
+discordButtonShadow.Color = Color3.fromRGB(0, 0, 0)
+discordButtonShadow.Transparency = 0.7
+discordButtonShadow.Thickness = 1
+discordButtonShadow.Parent = discordButton
+
+-- Rounded corners for Discord button
+local discordButtonCorner = Instance.new("UICorner")
+discordButtonCorner.CornerRadius = UDim.new(0.2, 0)
+discordButtonCorner.Parent = discordButton
+
+-- Small Discord icon (optional)
+local discordIcon = Instance.new("ImageLabel")
+discordIcon.Size = UDim2.new(0, 16, 0, 16)
+discordIcon.Position = UDim2.new(0, 5, 0.5, -8)
+discordIcon.BackgroundTransparency = 1
+discordIcon.Image = "rbxassetid://4494451673" -- Discord icon asset ID
+discordIcon.Parent = discordButton
+
+-- Discord button click function
+discordButton.MouseButton1Click:Connect(function()
+    -- Visual feedback
+    local originalColor = discordButton.BackgroundColor3
+    discordButton.BackgroundColor3 = Color3.fromRGB(78, 93, 148) -- Darker discord color
+    
+    -- Open Discord invite with a Roblox system message
+    local inviteLink = "https://discord.gg/Spyydr4c"
+    
+    -- Use Roblox's internal function to open URL
+    pcall(function()
+        -- First method (GUI method)
+        game:GetService("GuiService"):OpenBrowserWindow(inviteLink)
+    end)
+    
+    -- If the above fails, try alternate method
+    pcall(function()
+        -- Second method (legacy)
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "Discord Invite",
+            Text = "Link copied to clipboard: " .. inviteLink,
+            Duration = 5
+        })
+        
+        -- Attempt to copy to clipboard
+        if setclipboard then
+            setclipboard(inviteLink)
+        end
+    end)
+    
+    -- Revert button color after a short delay
+    wait(0.3)
+    discordButton.BackgroundColor3 = originalColor
+end)
+
 -- iPhone Dock Style Notification
 local notification = Instance.new("Frame")
 notification.Size = UDim2.new(0.3, 0, 0.04, 0) -- Smaller size
@@ -584,34 +650,6 @@ end)
 
 -- Allow clicking directly on the fly track to move the thumb
 flySliderTrack.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        updateFlySlider(input)
-    end
-end)
-
--- Walk Speed Slider Drag Event
-walkSliderThumb.MouseButton1Down:Connect(function()
-    local connection
-    connection = UserInputService.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then
-            updateWalkSlider(input)
-        end
-    end)
-
-    -- Stop dragging when mouse button is released
-    local endConn
-    endConn = UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            if connection then
-                connection:Disconnect()
-            end
-            endConn:Disconnect()
-        end
-    end)
-end)
-
--- Allow clicking directly on the walk speed track to move the thumb
-walkSliderTrack.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
         updateWalkSlider(input)
     end
