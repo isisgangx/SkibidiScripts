@@ -551,7 +551,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
--- Function to update the fly speed slider
 local function updateFlySlider(input)
     -- Get slider track dimensions and position
     local sliderWidth = flySliderTrack.AbsoluteSize.X
@@ -559,32 +558,52 @@ local function updateFlySlider(input)
     local sliderEnd = sliderStart + sliderWidth
     local mouseX = input.Position.X
     
-    -- Get the thumb half-width for proper edge calculations
-    local thumbHalfWidth = flySliderThumb.AbsoluteSize.X / 2
-    
     -- Calculate percentage based on mouse position relative to slider track
-    -- Adjust the boundaries to account for the thumb width
-    local thumbPosition = math.clamp(mouseX, sliderStart + thumbHalfWidth, sliderEnd - thumbHalfWidth)
-    local relativePosition = (thumbPosition - sliderStart - thumbHalfWidth) / (sliderWidth - thumbHalfWidth * 2)
-    
-    -- Set position in scale and offset format
-    local scalePosition = relativePosition
-    
-    -- Adjust position to keep thumb within track bounds
-    if scalePosition < 0 then scalePosition = 0 end
-    if scalePosition > 1 then scalePosition = 1 end
+    local relativePosition = math.clamp((mouseX - sliderStart) / sliderWidth, 0, 1)
     
     -- Calculate the proper scale position within the track
     local trackStartScale = 0.15 -- from the track's position
     local trackWidthScale = 0.7 -- from the track's size
-    local actualScale = trackStartScale + (scalePosition * trackWidthScale)
+    local actualScale = trackStartScale + (relativePosition * trackWidthScale)
     
     -- Update thumb position (aligned with the track boundaries)
     flySliderThumb.Position = UDim2.new(actualScale, -7, 0.3, -5)
     
     -- Update fly speed based on position (10 to 100)
-    flySpeed = math.floor(10 + (scalePosition * 90))
+    flySpeed = math.floor(10 + (relativePosition * 90))
     flySpeedLabel.Text = "Fly Speed: " .. flySpeed
+    
+    -- Update velocity immediately if currently flying
+    if flying and bodyVelocity then
+        local camera = workspace.CurrentCamera
+        local direction = Vector3.new(0, 0, 0)
+        
+        -- Get current direction from keys
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            direction = direction + camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            direction = direction - camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            direction = direction - camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            direction = direction + camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            direction = direction + Vector3.new(0, 1, 0)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+            direction = direction - Vector3.new(0, 1, 0)
+        end
+        
+        -- Normalize and apply new speed
+        if direction.Magnitude > 0 then
+            direction = direction.Unit
+        end
+        bodyVelocity.Velocity = direction * flySpeed
+    end
 end
 
 -- Function to update the walk speed slider
@@ -627,6 +646,34 @@ local function updateWalkSlider(input)
     end
 end
 
+-- Walk Speed Slider Drag Event
+walkSliderThumb.MouseButton1Down:Connect(function()
+    local connection
+    connection = UserInputService.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            updateWalkSlider(input)
+        end
+    end)
+
+    -- Stop dragging when mouse button is released
+    local endConn
+    endConn = UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            if connection then
+                connection:Disconnect()
+            end
+            endConn:Disconnect()
+        end
+    end)
+end)
+
+-- Allow clicking directly on the walk slider track
+walkSliderTrack.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        updateWalkSlider(input)
+    end
+end)
+
 -- Fly Slider Drag Event
 flySliderThumb.MouseButton1Down:Connect(function()
     local connection
@@ -651,7 +698,7 @@ end)
 -- Allow clicking directly on the fly track to move the thumb
 flySliderTrack.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        updateWalkSlider(input)
+        updateFlySlider(input)
     end
 end)
 
@@ -744,17 +791,58 @@ function toggleFly()
         enableFly()
     end
 end
-
+ 
+    -- Function to toggle walk speed
+function toggleWalkSpeed()
+    walkSpeedEnabled = not walkSpeedEnabled
+    
+    if walkSpeedEnabled then
+        walkSpeedButton.Text = "Walk Speed: ON [X]"
+        walkSpeedButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Red when active
+        
+        -- Apply custom walk speed
+        if humanoid then
+            humanoid.WalkSpeed = customWalkSpeed
+        end
+    else
+        walkSpeedButton.Text = "Walk Speed: OFF [X]"
+        walkSpeedButton.BackgroundColor3 = Color3.fromRGB(0, 202, 78) -- Green when inactive
+        
+        -- Reset to default walk speed
+        if humanoid then
+            humanoid.WalkSpeed = defaultWalkSpeed
+        end
+    end
+end
+    
+    -- Disconnect any existing connection first
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
+    end
+    
+    -- Disconnect any existing connection first
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
+    end
+    
 -- Function to toggle NoClip
 local function toggleNoClip()
     noclip = not noclip
+    
+    -- Disconnect any existing connection first
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
+    end
     
     if noclip then
         noclipButton.Text = "NoClip: ON"
         
         -- Connect NoClip function to RunService
         noclipConnection = game:GetService("RunService").Stepped:Connect(function()
-            if character then
+            if character and character.Parent then
                 for _, part in pairs(character:GetDescendants()) do
                     if part:IsA("BasePart") and part.CanCollide then
                         part.CanCollide = false
@@ -765,33 +853,22 @@ local function toggleNoClip()
     else
         noclipButton.Text = "NoClip: OFF"
         
-        -- Disconnect NoClip
-        if noclipConnection then
-            noclipConnection:Disconnect()
-            noclipConnection = nil
-        end
-        
-        -- Reset collision
-        if character then
+        -- Reset collision for character parts
+        if character and character.Parent then
             for _, part in pairs(character:GetDescendants()) do
                 if part:IsA("BasePart") then
-                    part.CanCollide = true
+                    if part.Name == "HumanoidRootPart" then
+                        part.CanCollide = false
+                    elseif part.Name == "Head" then
+                        part.CanCollide = false
+                    elseif part.Name:find("Handle") then
+                        part.CanCollide = false
+                    else
+                        part.CanCollide = true
+                    end
                 end
             end
         end
-    end
-end
-
--- Function to toggle walk speed
-function toggleWalkSpeed()
-    walkSpeedEnabled = not walkSpeedEnabled
-    
-    if walkSpeedEnabled then
-        walkSpeedButton.Text = "Walk Speed: ON [X]"
-        humanoid.WalkSpeed = customWalkSpeed
-    else
-        walkSpeedButton.Text = "Walk Speed: OFF [X]"
-        humanoid.WalkSpeed = defaultWalkSpeed
     end
 end
 
@@ -806,12 +883,13 @@ player.CharacterAdded:Connect(function(newCharacter)
     character = newCharacter
     humanoid = character:WaitForChild("Humanoid")
     rootPart = character:WaitForChild("HumanoidRootPart")
-    
-    -- Reset flying state and clean up
+   end) 
+    -- Reset flying state
     if flying then
-        flying = false
+        -- Update UI state first
         flyButton.Text = "Fly: OFF [F]"
         
+        -- Clean up existing instances
         if bodyVelocity then
             bodyVelocity:Destroy()
             bodyVelocity = nil
@@ -820,41 +898,23 @@ player.CharacterAdded:Connect(function(newCharacter)
             bodyGyro:Destroy()
             bodyGyro = nil
         end
+        
+        -- Wait a short time before resetting flying state to allow character to fully load
+        wait(0.1)
+        flying = false
+        humanoid.PlatformStand = false
     end
     
-    -- Apply walk speed settings
-    if walkSpeedEnabled then
-        humanoid.WalkSpeed = customWalkSpeed
-    else
-        humanoid.WalkSpeed = defaultWalkSpeed
-    end
+    -- Reapply walk speed settings after a short delay
+    spawn(function()
+        wait(0.1)
+        if walkSpeedEnabled then
+            humanoid.WalkSpeed = customWalkSpeed
+        else
+            humanoid.WalkSpeed = defaultWalkSpeed
+        end
+    end)
     
-    -- Handle noclip
-    if noclipConnection then
-        noclipConnection:Disconnect()
-        noclipConnection = nil
-    end
-    
-    -- Delay applying noclip to prevent floating
-    if noclip then
-        spawn(function()
-            wait(0.1) -- Shorter delay to minimize disruption
-            
-            -- Only apply noclip if it's still enabled
-            if noclip then
-                noclipConnection = game:GetService("RunService").Stepped:Connect(function()
-                    if character and character.Parent then
-                        for _, part in pairs(character:GetDescendants()) do
-                            if part:IsA("BasePart") and part.CanCollide then
-                                part.CanCollide = false
-                            end
-                        end
-                    end
-                end)
-            end
-        end)
-    end
-end)
 
 -- Anti-AFK (prevent Roblox from kicking player for inactivity)
 local antiAFK = game:GetService("Players").LocalPlayer.Idled:Connect(function()
@@ -871,8 +931,11 @@ screenGui.AncestryChanged:Connect(function(_, newParent)
             disableFly()
         end
         
+        noclip = false -- Add this line to reset the noclip state
+        
         if noclipConnection then
             noclipConnection:Disconnect()
+            noclipConnection = nil
         end
         
         if antiAFK then
@@ -882,6 +945,19 @@ screenGui.AncestryChanged:Connect(function(_, newParent)
         -- Reset walk speed
         if humanoid and walkSpeedEnabled then
             humanoid.WalkSpeed = defaultWalkSpeed
+        end
+        
+        -- Reset collision for all parts
+        if character and character.Parent then
+            for _, part in pairs(character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    if part.Name == "HumanoidRootPart" then
+                        part.CanCollide = false
+                    else
+                        part.CanCollide = true
+                    end
+                end
+            end
         end
     end
 end)
