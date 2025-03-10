@@ -883,7 +883,7 @@ player.CharacterAdded:Connect(function(newCharacter)
     character = newCharacter
     humanoid = character:WaitForChild("Humanoid")
     rootPart = character:WaitForChild("HumanoidRootPart")
-   end) 
+    
     -- Reset flying state
     if flying then
         -- Update UI state first
@@ -914,6 +914,7 @@ player.CharacterAdded:Connect(function(newCharacter)
             humanoid.WalkSpeed = defaultWalkSpeed
         end
     end)
+end)
     
 
 -- Anti-AFK (prevent Roblox from kicking player for inactivity)
