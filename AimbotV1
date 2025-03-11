@@ -28,6 +28,18 @@ local startPos = nil
 -- ESP Variables
 local espHighlights = {}
 
+-- Keep track of core UI elements to prevent duplicates
+local screenGui = nil
+
+-- Function to check if UI already exists and remove duplicates
+local function cleanupExistingUI()
+    for _, gui in pairs(player.PlayerGui:GetChildren()) do
+        if gui:IsA("ScreenGui") and gui.Name == "CameraLockUI" then
+            gui:Destroy()
+        end
+    end
+end
+
 -- Function to create rounded corners
 function createRoundedCorners(parent, radius)
     local corner = Instance.new("UICorner", parent)
@@ -35,212 +47,354 @@ function createRoundedCorners(parent, radius)
     return corner
 end
 
--- UI Setup
-local screenGui = Instance.new("ScreenGui", player.PlayerGui)
-screenGui.Name = "CameraLockUI"
-screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
--- Main Frame (Made wider)
-local frame = Instance.new("Frame", screenGui)
-frame.Size = UDim2.new(0, 600, 0, 250) -- Increased width from 400 to 600
-frame.Position = UDim2.new(0.5, -300, -0.3, 0) -- Adjusted position to center
-frame.BackgroundColor3 = Color3.fromRGB(240, 240, 247)
-frame.BorderSizePixel = 0
-frame.ClipsDescendants = true
-
--- Rounded corners for main frame (only top corners)
-local frameCorner = createRoundedCorners(frame, UDim.new(0.04, 0))
-
--- Title Bar for Dragging
-local titleBar = Instance.new("Frame", frame)
-titleBar.Size = UDim2.new(1, 0, 0, 30)
-titleBar.Position = UDim2.new(0, 0, 0, 0)
-titleBar.BackgroundColor3 = Color3.fromRGB(230, 230, 235)
-titleBar.BorderSizePixel = 0
-
--- Round only the top corners of the title bar
-local titleCorner = createRoundedCorners(titleBar, UDim.new(0.04, 0))
-
--- Title Text
-local titleText = Instance.new("TextLabel", titleBar)
-titleText.Size = UDim2.new(0, 200, 0, 30)
-titleText.Position = UDim2.new(0, 10, 0, 0)
-titleText.Text = "Camera Lock"
-titleText.TextColor3 = Color3.fromRGB(80, 80, 80)
-titleText.BackgroundTransparency = 1
-titleText.Font = Enum.Font.GothamSemibold
-titleText.TextSize = 16
-titleText.TextXAlignment = Enum.TextXAlignment.Left
-
--- Find the uiTitleText position (around line 86)
-local uiTitleText = Instance.new("TextLabel", frame)
-uiTitleText.Size = UDim2.new(0, 200, 0, 30)
-uiTitleText.Position = UDim2.new(0.5, -100, 0.85, 0) -- Changed from 0.92 to 0.85 to move it higher
-uiTitleText.Text = "SkibidiScripts"
-uiTitleText.TextColor3 = Color3.fromRGB(150, 150, 150)
-uiTitleText.BackgroundTransparency = 1
-uiTitleText.Font = Enum.Font.GothamMedium
-uiTitleText.TextSize = 18
-
--- Control Buttons (Top Right)
-local closeButton = Instance.new("TextButton", titleBar)
-closeButton.Size = UDim2.new(0, 15, 0, 15)
-closeButton.Position = UDim2.new(0.97, -10, 0.5, -7.5)
-closeButton.Text = ""
-closeButton.BackgroundColor3 = Color3.fromRGB(255, 95, 90)
-closeButton.BorderSizePixel = 0
-closeButton.AutoButtonColor = false
-
-local minimizeButton = Instance.new("TextButton", titleBar)
-minimizeButton.Size = UDim2.new(0, 15, 0, 15)
-minimizeButton.Position = UDim2.new(0.90, -10, 0.5, -7.5)
-minimizeButton.Text = ""
-minimizeButton.BackgroundColor3 = Color3.fromRGB(255, 189, 68)
-minimizeButton.BorderSizePixel = 0
-minimizeButton.AutoButtonColor = false
-
--- Rounded corners for buttons
-createRoundedCorners(closeButton, UDim.new(1, 0))
-createRoundedCorners(minimizeButton, UDim.new(1, 0))
-
--- Reorganized Toggles List - Left and Right columns
-local leftToggles = {
-    {name = "Lock to Torso", pos = 0.25, var = "isEnabled"},
-    {name = "Lock to Head", pos = 0.50, var = "lockToHead"},
-    {name = "ESP", pos = 0.75, var = "espEnabled"},
-}
-
-local rightToggles = {
-    {name = "Wall Check", pos = 0.25, var = "wallCheck"},
-    {name = "Lock to Nearest", pos = 0.50, var = "lockToNearest"},
-    {name = "Team Check", pos = 0.75, var = "teamCheck"}
-}
-
--- Add Alive Check Toggle (new)
-local bottomToggles = {
-    {name = "Alive Check", pos = 0.5, var = "aliveCheck"},
-}
-
--- Create Left Toggles
-for _, toggleData in pairs(leftToggles) do
-    local yPos = toggleData.pos
+-- UI Setup function - separate to allow recreation after respawn
+local function createUI()
+    -- Clean up any existing UIs to prevent duplicates
+    cleanupExistingUI()
     
-    -- Toggle Background
-    local toggleBG = Instance.new("Frame", frame)
-    toggleBG.Size = UDim2.new(0, 54, 0, 28)
-    toggleBG.Position = UDim2.new(0.12, 0, yPos, 0)
-    toggleBG.BackgroundColor3 = Color3.fromRGB(220, 220, 225)
-    toggleBG.BorderSizePixel = 0
-    
-    -- Toggle Button
-    local toggleBtn = Instance.new("TextButton", toggleBG)
-    toggleBtn.Size = UDim2.new(0, 26, 0, 26)
-    toggleBtn.Position = UDim2.new(0, 1, 0.5, -13)
-    toggleBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    toggleBtn.Text = ""
-    toggleBtn.BorderSizePixel = 0
-    toggleBtn.AutoButtonColor = false
-    
-    -- Label
-    local label = Instance.new("TextLabel", frame)
-    label.Size = UDim2.new(0, 200, 0, 20)
-    label.Position = UDim2.new(0.22, 0, yPos, 4)
-    label.Text = toggleData.name
-    label.TextColor3 = Color3.fromRGB(80, 80, 80)
-    label.BackgroundTransparency = 1
-    label.Font = Enum.Font.GothamMedium
-    label.TextSize = 14
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    
-    -- Store references
-    toggleData.bg = toggleBG
-    toggleData.btn = toggleBtn
-    
-    -- Apply rounded corners
-    createRoundedCorners(toggleBG, UDim.new(1, 0))
-    createRoundedCorners(toggleBtn, UDim.new(1, 0))
-end
+    screenGui = Instance.new("ScreenGui", player.PlayerGui)
+    screenGui.Name = "CameraLockUI"
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.ResetOnSpawn = false -- IMPORTANT: This prevents UI from being deleted on respawn
 
--- Create Right Toggles
-for _, toggleData in pairs(rightToggles) do
-    local yPos = toggleData.pos
-    
-    -- Toggle Background
-    local toggleBG = Instance.new("Frame", frame)
-    toggleBG.Size = UDim2.new(0, 54, 0, 28)
-    toggleBG.Position = UDim2.new(0.62, 0, yPos, 0) -- Positioned on the right side
-    toggleBG.BackgroundColor3 = Color3.fromRGB(220, 220, 225)
-    toggleBG.BorderSizePixel = 0
-    
-    -- Toggle Button
-    local toggleBtn = Instance.new("TextButton", toggleBG)
-    toggleBtn.Size = UDim2.new(0, 26, 0, 26)
-    toggleBtn.Position = UDim2.new(0, 1, 0.5, -13)
-    toggleBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    toggleBtn.Text = ""
-    toggleBtn.BorderSizePixel = 0
-    toggleBtn.AutoButtonColor = false
-    
-    -- Label
-    local label = Instance.new("TextLabel", frame)
-    label.Size = UDim2.new(0, 200, 0, 20)
-    label.Position = UDim2.new(0.72, 0, yPos, 4)
-    label.Text = toggleData.name
-    label.TextColor3 = Color3.fromRGB(80, 80, 80)
-    label.BackgroundTransparency = 1
-    label.Font = Enum.Font.GothamMedium
-    label.TextSize = 14
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    
-    -- Store references
-    toggleData.bg = toggleBG
-    toggleData.btn = toggleBtn
-    
-    -- Apply rounded corners
-    createRoundedCorners(toggleBG, UDim.new(1, 0))
-    createRoundedCorners(toggleBtn, UDim.new(1, 0))
-end
+    -- Main Frame (Made wider)
+    local frame = Instance.new("Frame", screenGui)
+    frame.Size = UDim2.new(0, 600, 0, 250) -- Increased width from 400 to 600
+    frame.Position = UDim2.new(0.5, -300, -0.3, 0) -- Adjusted position to center
+    frame.BackgroundColor3 = Color3.fromRGB(240, 240, 247)
+    frame.BorderSizePixel = 0
+    frame.ClipsDescendants = true
 
--- Create Bottom Toggles (Alive Check)
-for _, toggleData in pairs(bottomToggles) do
-    -- Toggle Background
-    local toggleBG = Instance.new("Frame", frame)
-    toggleBG.Size = UDim2.new(0, 54, 0, 28)
-    toggleBG.Position = UDim2.new(0.37, 0, 0.9, -30) -- Position at bottom center
-    toggleBG.BackgroundColor3 = Color3.fromRGB(220, 220, 225)
-    toggleBG.BorderSizePixel = 0
+    -- Rounded corners for main frame (only top corners)
+    local frameCorner = createRoundedCorners(frame, UDim.new(0.04, 0))
+
+    -- Title Bar for Dragging
+    local titleBar = Instance.new("Frame", frame)
+    titleBar.Size = UDim2.new(1, 0, 0, 30)
+    titleBar.Position = UDim2.new(0, 0, 0, 0)
+    titleBar.BackgroundColor3 = Color3.fromRGB(230, 230, 235)
+    titleBar.BorderSizePixel = 0
+
+    -- Round only the top corners of the title bar
+    local titleCorner = createRoundedCorners(titleBar, UDim.new(0.04, 0))
+
+    -- Title Text
+    local titleText = Instance.new("TextLabel", titleBar)
+    titleText.Size = UDim2.new(0, 200, 0, 30)
+    titleText.Position = UDim2.new(0, 10, 0, 0)
+    titleText.Text = "Camera Lock"
+    titleText.TextColor3 = Color3.fromRGB(80, 80, 80)
+    titleText.BackgroundTransparency = 1
+    titleText.Font = Enum.Font.GothamSemibold
+    titleText.TextSize = 16
+    titleText.TextXAlignment = Enum.TextXAlignment.Left
+
+    -- Find the uiTitleText position (around line 86)
+    local uiTitleText = Instance.new("TextLabel", frame)
+    uiTitleText.Size = UDim2.new(0, 200, 0, 30)
+    uiTitleText.Position = UDim2.new(0.5, -100, 0.85, 0) -- Changed from 0.92 to 0.85 to move it higher
+    uiTitleText.Text = "SkibidiScripts"
+    uiTitleText.TextColor3 = Color3.fromRGB(150, 150, 150)
+    uiTitleText.BackgroundTransparency = 1
+    uiTitleText.Font = Enum.Font.GothamMedium
+    uiTitleText.TextSize = 18
+
+    -- Control Buttons (Top Right)
+    local closeButton = Instance.new("TextButton", titleBar)
+    closeButton.Size = UDim2.new(0, 15, 0, 15)
+    closeButton.Position = UDim2.new(0.97, -10, 0.5, -7.5)
+    closeButton.Text = ""
+    closeButton.BackgroundColor3 = Color3.fromRGB(255, 95, 90)
+    closeButton.BorderSizePixel = 0
+    closeButton.AutoButtonColor = false
+
+    local minimizeButton = Instance.new("TextButton", titleBar)
+    minimizeButton.Size = UDim2.new(0, 15, 0, 15)
+    minimizeButton.Position = UDim2.new(0.90, -10, 0.5, -7.5)
+    minimizeButton.Text = ""
+    minimizeButton.BackgroundColor3 = Color3.fromRGB(255, 189, 68)
+    minimizeButton.BorderSizePixel = 0
+    minimizeButton.AutoButtonColor = false
+
+    -- Rounded corners for buttons
+    createRoundedCorners(closeButton, UDim.new(1, 0))
+    createRoundedCorners(minimizeButton, UDim.new(1, 0))
+
+    -- Reorganized Toggles List - Left and Right columns
+    local leftToggles = {
+        {name = "Lock to Torso", pos = 0.25, var = "isEnabled"},
+        {name = "Lock to Head", pos = 0.50, var = "lockToHead"},
+        {name = "ESP", pos = 0.75, var = "espEnabled"},
+    }
+
+    local rightToggles = {
+        {name = "Wall Check", pos = 0.25, var = "wallCheck"},
+        {name = "Lock to Nearest", pos = 0.50, var = "lockToNearest"},
+        {name = "Team Check", pos = 0.75, var = "teamCheck"}
+    }
+
+    -- Add Alive Check Toggle (new)
+    local bottomToggles = {
+        {name = "Alive Check", pos = 0.5, var = "aliveCheck"},
+    }
+
+    -- Create Left Toggles
+    for _, toggleData in pairs(leftToggles) do
+        local yPos = toggleData.pos
+        
+        -- Toggle Background
+        local toggleBG = Instance.new("Frame", frame)
+        toggleBG.Size = UDim2.new(0, 54, 0, 28)
+        toggleBG.Position = UDim2.new(0.12, 0, yPos, 0)
+        toggleBG.BackgroundColor3 = Color3.fromRGB(220, 220, 225)
+        toggleBG.BorderSizePixel = 0
+        
+        -- Toggle Button
+        local toggleBtn = Instance.new("TextButton", toggleBG)
+        toggleBtn.Size = UDim2.new(0, 26, 0, 26)
+        toggleBtn.Position = UDim2.new(0, 1, 0.5, -13)
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        toggleBtn.Text = ""
+        toggleBtn.BorderSizePixel = 0
+        toggleBtn.AutoButtonColor = false
+        
+        -- Label
+        local label = Instance.new("TextLabel", frame)
+        label.Size = UDim2.new(0, 200, 0, 20)
+        label.Position = UDim2.new(0.22, 0, yPos, 4)
+        label.Text = toggleData.name
+        label.TextColor3 = Color3.fromRGB(80, 80, 80)
+        label.BackgroundTransparency = 1
+        label.Font = Enum.Font.GothamMedium
+        label.TextSize = 14
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        
+        -- Store references
+        toggleData.bg = toggleBG
+        toggleData.btn = toggleBtn
+        
+        -- Apply rounded corners
+        createRoundedCorners(toggleBG, UDim.new(1, 0))
+        createRoundedCorners(toggleBtn, UDim.new(1, 0))
+        
+        -- Restore toggle state after UI recreation (persists through resets)
+        if _G[toggleData.var] then
+            animateToggle(toggleBtn, toggleBG, true)
+        end
+    end
+
+    -- Create Right Toggles
+    for _, toggleData in pairs(rightToggles) do
+        local yPos = toggleData.pos
+        
+        -- Toggle Background
+        local toggleBG = Instance.new("Frame", frame)
+        toggleBG.Size = UDim2.new(0, 54, 0, 28)
+        toggleBG.Position = UDim2.new(0.62, 0, yPos, 0) -- Positioned on the right side
+        toggleBG.BackgroundColor3 = Color3.fromRGB(220, 220, 225)
+        toggleBG.BorderSizePixel = 0
+        
+        -- Toggle Button
+        local toggleBtn = Instance.new("TextButton", toggleBG)
+        toggleBtn.Size = UDim2.new(0, 26, 0, 26)
+        toggleBtn.Position = UDim2.new(0, 1, 0.5, -13)
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        toggleBtn.Text = ""
+        toggleBtn.BorderSizePixel = 0
+        toggleBtn.AutoButtonColor = false
+        
+        -- Label
+        local label = Instance.new("TextLabel", frame)
+        label.Size = UDim2.new(0, 200, 0, 20)
+        label.Position = UDim2.new(0.72, 0, yPos, 4)
+        label.Text = toggleData.name
+        label.TextColor3 = Color3.fromRGB(80, 80, 80)
+        label.BackgroundTransparency = 1
+        label.Font = Enum.Font.GothamMedium
+        label.TextSize = 14
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        
+        -- Store references
+        toggleData.bg = toggleBG
+        toggleData.btn = toggleBtn
+        
+        -- Apply rounded corners
+        createRoundedCorners(toggleBG, UDim.new(1, 0))
+        createRoundedCorners(toggleBtn, UDim.new(1, 0))
+        
+        -- Restore toggle state after UI recreation (persists through resets)
+        if _G[toggleData.var] then
+            animateToggle(toggleBtn, toggleBG, true)
+        end
+    end
+
+    -- Create Bottom Toggles (Alive Check)
+    for _, toggleData in pairs(bottomToggles) do
+        -- Toggle Background
+        local toggleBG = Instance.new("Frame", frame)
+        toggleBG.Size = UDim2.new(0, 54, 0, 28)
+        toggleBG.Position = UDim2.new(0.37, 0, 0.9, -30) -- Position at bottom center
+        toggleBG.BackgroundColor3 = Color3.fromRGB(220, 220, 225)
+        toggleBG.BorderSizePixel = 0
+        
+        -- Toggle Button
+        local toggleBtn = Instance.new("TextButton", toggleBG)
+        toggleBtn.Size = UDim2.new(0, 26, 0, 26)
+        toggleBtn.Position = UDim2.new(0, 1, 0.5, -13)
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        toggleBtn.Text = ""
+        toggleBtn.BorderSizePixel = 0
+        toggleBtn.AutoButtonColor = false
+        
+        -- Label
+        local label = Instance.new("TextLabel", frame)
+        label.Size = UDim2.new(0, 200, 0, 20)
+        label.Position = UDim2.new(0.47, 0, 0.9, -26)
+        label.Text = toggleData.name
+        label.TextColor3 = Color3.fromRGB(80, 80, 80)
+        label.BackgroundTransparency = 1
+        label.Font = Enum.Font.GothamMedium
+        label.TextSize = 14
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        
+        -- Store references
+        toggleData.bg = toggleBG
+        toggleData.btn = toggleBtn
+        
+        -- Apply rounded corners
+        createRoundedCorners(toggleBG, UDim.new(1, 0))
+        createRoundedCorners(toggleBtn, UDim.new(1, 0))
+        
+        -- Restore toggle state after UI recreation (persists through resets)
+        if _G[toggleData.var] then
+            animateToggle(toggleBtn, toggleBG, true)
+        end
+    end
+
+    -- UI Controls
+    local minimizeButtonConn = minimizeButton.MouseButton1Click:Connect(function()
+        -- Set UI state to minimized
+        isUIMinimized = true
+        
+        -- Hide UI
+        TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In), 
+            {Position = UDim2.new(0.5, -300, -0.5, 0)}):Play()
+        showNotification("UI minimized - Press Right Alt to reopen")
+    end)
+    table.insert(connectionStorage, minimizeButtonConn)
+
+    -- FIXED closeButton.MouseButton1Click connection to ensure full cleanup
+    local closeButtonConn = closeButton.MouseButton1Click:Connect(function()
+        -- First disconnect all connections to prevent any further updates
+        for _, connection in pairs(connectionStorage) do
+            if typeof(connection) == "RBXScriptConnection" and connection.Connected then 
+                connection:Disconnect() 
+            end
+        end
+        connectionStorage = {}
+        
+        -- Disable all features
+        isLocking = false
+        _G.isEnabled = false
+        _G.lockToHead = false
+        _G.espEnabled = false
+        _G.wallCheck = false
+        _G.lockToNearest = false
+        _G.teamCheck = false
+        _G.aliveCheck = false
+        
+        -- Clean up ESP
+        for _, highlight in pairs(espHighlights) do
+            if highlight and highlight.Parent then
+                highlight:Destroy()
+            end
+        end
+        espHighlights = {}
+        
+        -- Remove context actions
+        ContextActionService:UnbindAction("CameraLock")
+        
+        -- Show unload notification
+        showNotification("Camera Lock unloaded successfully")
+        
+        -- Force destroy the screenGui without relying on animation completion
+        spawn(function()
+            wait(0.5) -- Small delay to allow notification to be seen
+            if screenGui and screenGui.Parent then
+                screenGui:Destroy()
+            end
+        end)
+    end)
+    table.insert(connectionStorage, closeButtonConn)
+
+    -- Make UI Draggable
+    local titleBarInputBeganConn = titleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isDragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+        end
+    end)
+    table.insert(connectionStorage, titleBarInputBeganConn)
+
+    local titleBarInputEndedConn = titleBar.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isDragging = false
+        end
+    end)
+    table.insert(connectionStorage, titleBarInputEndedConn)
+
+    local inputChangedConn = UserInputService.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement and isDragging then
+            local delta = input.Position - dragStart
+            TweenService:Create(frame, TweenInfo.new(0.1), {
+                Position = UDim2.new(
+                    startPos.X.Scale, 
+                    startPos.X.Offset + delta.X, 
+                    startPos.Y.Scale, 
+                    startPos.Y.Offset + delta.Y
+                )
+            }):Play()
+        end
+    end)
+    table.insert(connectionStorage, inputChangedConn)
     
-    -- Toggle Button
-    local toggleBtn = Instance.new("TextButton", toggleBG)
-    toggleBtn.Size = UDim2.new(0, 26, 0, 26)
-    toggleBtn.Position = UDim2.new(0, 1, 0.5, -13)
-    toggleBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    toggleBtn.Text = ""
-    toggleBtn.BorderSizePixel = 0
-    toggleBtn.AutoButtonColor = false
+    -- Toggle Animation Function
+    local allToggles = {}
+    for _, v in pairs(leftToggles) do table.insert(allToggles, v) end
+    for _, v in pairs(rightToggles) do table.insert(allToggles, v) end
+    for _, v in pairs(bottomToggles) do table.insert(allToggles, v) end
+
+    for _, toggleData in pairs(allToggles) do
+        -- Initialize _G variables if they don't exist
+        if _G[toggleData.var] == nil then
+            _G[toggleData.var] = false
+        end
+        
+        -- Store toggle connections in connectionStorage
+        local toggleConn = toggleData.btn.MouseButton1Click:Connect(function()
+            _G[toggleData.var] = not _G[toggleData.var]
+            animateToggle(toggleData.btn, toggleData.bg, _G[toggleData.var])
+            
+            -- Handle ESP immediately
+            if toggleData.var == "espEnabled" then
+                updateESP()
+            end
+        end)
+        
+        table.insert(connectionStorage, toggleConn)
+    end
+
+    -- Initial animation for UI
+    frame.Position = UDim2.new(0.5, -300, -0.5, 0)
+    TweenService:Create(frame, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), 
+        {Position = UDim2.new(0.5, -300, 0.05, 0)}):Play()
     
-    -- Label
-    local label = Instance.new("TextLabel", frame)
-    label.Size = UDim2.new(0, 200, 0, 20)
-    label.Position = UDim2.new(0.47, 0, 0.9, -26)
-    label.Text = toggleData.name
-    label.TextColor3 = Color3.fromRGB(80, 80, 80)
-    label.BackgroundTransparency = 1
-    label.Font = Enum.Font.GothamMedium
-    label.TextSize = 14
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    
-    -- Store references
-    toggleData.bg = toggleBG
-    toggleData.btn = toggleBtn
-    
-    -- Apply rounded corners
-    createRoundedCorners(toggleBG, UDim.new(1, 0))
-    createRoundedCorners(toggleBtn, UDim.new(1, 0))
+    return frame
 end
 
 -- Toggle Animation Function
-local function animateToggle(toggleBtn, toggleBG, state)
+function animateToggle(toggleBtn, toggleBG, state)
     TweenService:Create(toggleBtn, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
         Position = state and UDim2.new(1, -27, 0.5, -13) or UDim2.new(0, 1, 0.5, -13)
     }):Play()
@@ -248,29 +402,6 @@ local function animateToggle(toggleBtn, toggleBG, state)
     TweenService:Create(toggleBG, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
         BackgroundColor3 = state and Color3.fromRGB(0, 122, 255) or Color3.fromRGB(220, 220, 225)
     }):Play()
-end
-
--- Initialize Toggles with _G variables
-local allToggles = {}
-for _, v in pairs(leftToggles) do table.insert(allToggles, v) end
-for _, v in pairs(rightToggles) do table.insert(allToggles, v) end
-for _, v in pairs(bottomToggles) do table.insert(allToggles, v) end
-
-for _, toggleData in pairs(allToggles) do
-    _G[toggleData.var] = false -- Initialize all variables in _G table
-    
-    -- Store toggle connections in connectionStorage
-    local toggleConn = toggleData.btn.MouseButton1Click:Connect(function()
-        _G[toggleData.var] = not _G[toggleData.var]
-        animateToggle(toggleData.btn, toggleData.bg, _G[toggleData.var])
-        
-        -- Handle ESP immediately
-        if toggleData.var == "espEnabled" then
-            updateESP()
-        end
-    end)
-    
-    table.insert(connectionStorage, toggleConn)
 end
 
 -- NEW PURPLE GLOW ESP FUNCTION
@@ -386,77 +517,6 @@ function isAlive(character)
     return humanoid and humanoid.Health > 0
 end
 
--- Monitor player team changes
-local playerTeamConn = player:GetPropertyChangedSignal("Team"):Connect(function()
-    if _G.espEnabled and _G.teamCheck then
-        updateESP()
-    end
-end)
-table.insert(connectionStorage, playerTeamConn)
-
--- Check for other players' team changes
-for _, otherPlayer in pairs(Players:GetPlayers()) do
-    if otherPlayer ~= player then
-        local otherTeamConn = otherPlayer:GetPropertyChangedSignal("Team"):Connect(function()
-            if _G.espEnabled and _G.teamCheck then
-                updateESP()
-            end
-        end)
-        table.insert(connectionStorage, otherTeamConn)
-    end
-end
-
--- Monitor player health changes for Alive Check
-for _, otherPlayer in pairs(Players:GetPlayers()) do
-    if otherPlayer ~= player then
-        local charConn = otherPlayer.CharacterAdded:Connect(function(character)
-            if _G.espEnabled then
-                updateESP()
-            end
-            
-            local humanoid = character:WaitForChild("Humanoid", 10)
-            if humanoid then
-                local healthConn = humanoid.HealthChanged:Connect(function()
-                    if _G.espEnabled and _G.aliveCheck then
-                        updateESP()
-                    end
-                end)
-                table.insert(connectionStorage, healthConn)
-            end
-        end)
-        table.insert(connectionStorage, charConn)
-    end
-end
-
--- Also monitor for new players and set up team change detection
-local playerAddedConn = Players.PlayerAdded:Connect(function(newPlayer)
-    local newPlayerTeamConn = newPlayer:GetPropertyChangedSignal("Team"):Connect(function()
-        if _G.espEnabled and _G.teamCheck then
-            updateESP()
-        end
-    end)
-    table.insert(connectionStorage, newPlayerTeamConn)
-    
-    -- Add character added/health monitoring for new players
-    local charConn = newPlayer.CharacterAdded:Connect(function(character)
-        if _G.espEnabled then
-            updateESP()
-        end
-        
-        local humanoid = character:WaitForChild("Humanoid", 10)
-        if humanoid then
-            local healthConn = humanoid.HealthChanged:Connect(function()
-                if _G.espEnabled and _G.aliveCheck then
-                    updateESP()
-                end
-            end)
-            table.insert(connectionStorage, healthConn)
-        end
-    end)
-    table.insert(connectionStorage, charConn)
-end)
-table.insert(connectionStorage, playerAddedConn)
-
 -- Modified Lock-on Logic to properly use nearest distance in 3D space
 function findTarget()
     local nearest = nil
@@ -543,126 +603,6 @@ function lockCamera()
     table.insert(connectionStorage, cameraLockLoop)
 end
 
--- Fixed Input Handling for UI toggling
-local isUIMinimized = false -- Track UI state
-
-local inputBeganConn = UserInputService.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton2 and _G.isEnabled then
-        isLocking = true
-        lockCamera()
-    elseif input.KeyCode == Enum.KeyCode.RightAlt then
-        -- Toggle UI visibility
-        if isUIMinimized then
-            -- Show UI if it was minimized
-            TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), 
-                {Position = UDim2.new(0.5, -300, 0.05, 0)}):Play()
-            isUIMinimized = false
-        else
-            -- Hide UI if it was visible
-            TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In), 
-                {Position = UDim2.new(0.5, -300, -0.5, 0)}):Play()
-            isUIMinimized = true
-            showNotification("UI minimized - Press Right Alt to reopen")
-        end
-    end
-end)
-table.insert(connectionStorage, inputBeganConn)
-
-local inputEndedConn = UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton2 then
-        isLocking = false
-    end
-end)
-table.insert(connectionStorage, inputEndedConn)
-
--- Make UI Draggable
-local titleBarInputBeganConn = titleBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        isDragging = true
-        dragStart = input.Position
-        startPos = frame.Position
-    end
-end)
-table.insert(connectionStorage, titleBarInputBeganConn)
-
-local titleBarInputEndedConn = titleBar.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        isDragging = false
-    end
-end)
-table.insert(connectionStorage, titleBarInputEndedConn)
-
-local inputChangedConn = UserInputService.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement and isDragging then
-        local delta = input.Position - dragStart
-        TweenService:Create(frame, TweenInfo.new(0.1), {
-            Position = UDim2.new(
-                startPos.X.Scale, 
-                startPos.X.Offset + delta.X, 
-                startPos.Y.Scale, 
-                startPos.Y.Offset + delta.Y
-            )
-        }):Play()
-    end
-end)
-table.insert(connectionStorage, inputChangedConn)
-
--- UI Controls
-local minimizeButtonConn = minimizeButton.MouseButton1Click:Connect(function()
-    -- Set UI state to minimized
-    isUIMinimized = true
-    
-    -- Hide UI
-    TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In), 
-        {Position = UDim2.new(0.5, -300, -0.5, 0)}):Play()
-    showNotification("UI minimized - Press Right Alt to reopen")
-end)
-table.insert(connectionStorage, minimizeButtonConn)
-
--- FIXED closeButton.MouseButton1Click connection to ensure full cleanup
-local closeButtonConn = closeButton.MouseButton1Click:Connect(function()
-    -- First disconnect all connections to prevent any further updates
-    for _, connection in pairs(connectionStorage) do
-        if typeof(connection) == "RBXScriptConnection" and connection.Connected then 
-            connection:Disconnect() 
-        end
-    end
-    connectionStorage = {}
-    
-    -- Disable all features
-    isLocking = false
-    _G.isEnabled = false
-    _G.lockToHead = false
-    _G.espEnabled = false
-    _G.wallCheck = false
-    _G.lockToNearest = false
-    _G.teamCheck = false
-    _G.aliveCheck = false
-    
-    -- Clean up ESP
-    for _, highlight in pairs(espHighlights) do
-        if highlight and highlight.Parent then
-            highlight:Destroy()
-        end
-    end
-    espHighlights = {}
-    
-    -- Remove context actions
-    ContextActionService:UnbindAction("CameraLock")
-    
-    -- Show unload notification
-    showNotification("Camera Lock unloaded successfully")
-    
-    -- Force destroy the screenGui without relying on animation completion
-    spawn(function()
-        wait(0.5) -- Small delay to allow notification to be seen
-        if screenGui and screenGui.Parent then
-            screenGui:Destroy()
-        end
-    end)
-end)
-table.insert(connectionStorage, closeButtonConn)
-
 -- Enhanced Notification System with transparent white background
 function showNotification(message)
     local notification = Instance.new("Frame", screenGui)
@@ -687,7 +627,7 @@ function showNotification(message)
     -- Animate notification (slide up and fade)
     notification.Position = UDim2.new(0.5, -120, 1.1, 0)
     local notifTween = TweenService:Create(notification, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), 
- {Position = UDim2.new(0.5, -120, 0.9, 0)}):Play()
+        {Position = UDim2.new(0.5, -120, 0.9, 0)}):Play()
     
     -- Destroy notification after delay
     spawn(function()
@@ -699,29 +639,104 @@ function showNotification(message)
     end)
 end
 
--- Initial animation for UI
-frame.Position = UDim2.new(0.5, -300, -0.5, 0)
-TweenService:Create(frame, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), 
-    {Position = UDim2.new(0.5, -300, 0.05, 0)}):Play()
+-- Setup key functionality
+local function setupKeybinds()
+    -- Fixed Input Handling for UI toggling
+    local isUIMinimized = false -- Track UI state
 
--- Player added event for ESP updates
-local playerAddedForESP = Players.PlayerAdded:Connect(function()
-    if _G.espEnabled then
-        updateESP()
-    end
-end)
-table.insert(connectionStorage, playerAddedForESP)
+    local inputBeganConn = UserInputService.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton2 and _G.isEnabled then
+            isLocking = true
+            lockCamera()
+        elseif input.KeyCode == Enum.KeyCode.RightAlt then
+            -- Toggle UI visibility
+            if isUIMinimized then
+                -- Show UI if it was minimized
+                TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), 
+                    {Position = UDim2.new(0.5, -300, 0.05, 0)}):Play()
+                isUIMinimized = false
+            else
+                -- Hide UI if it was visible
+                TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In), 
+                    {Position = UDim2.new(0.5, -300, -0.5, 0)}):Play()
+                isUIMinimized = true
+                showNotification("UI minimized - Press Right Alt to reopen")
+            end
+        end
+    end)
+    table.insert(connectionStorage, inputBeganConn)
 
--- Display initial notification
-showNotification("Camera Lock loaded! Press Right Alt to toggle UI")
+    local inputEndedConn = UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton2 then
+            isLocking = false
+        end
+    end)
+    table.insert(connectionStorage, inputEndedConn)
+end
+
+-- Monitor players for ESP updates
+function setupPlayerMonitoring()
+    -- Update ESP when players are added
+    local playerAddedConn = Players.PlayerAdded:Connect(function()
+        if _G.espEnabled then
+            updateESP()
+        end
+    end)
+    table.insert(connectionStorage, playerAddedConn)
+    
+    -- Update ESP when players leave
+    local playerRemovingConn = Players.PlayerRemoving:Connect(function()
+        if _G.espEnabled then
+            updateESP()
+        end
+    end)
+    table.insert(connectionStorage, playerRemovingConn)
+    
+    -- Update ESP when character is added
+    local characterAddedConn = player.CharacterAdded:Connect(function()
+        -- Recreate UI if it was destroyed
+        if not screenGui or not screenGui.Parent then
+            frame = createUI()
+            setupKeybinds()
+        end
+        
+        if _G.espEnabled then
+            updateESP()
+        end
+    end)
+    table.insert(connectionStorage, characterAddedConn)
+end
+
+-- Main Initialization
+frame = createUI()
+setupKeybinds()
+setupPlayerMonitoring()
+
+-- Initial ESP update
+if _G.espEnabled then
+    updateESP()
+end
+
+-- Show welcome notification
+showNotification("Camera Lock loaded successfully")
 
 -- Return cleanup function
 return function()
+    -- Disconnect all connections
     for _, connection in pairs(connectionStorage) do
         if typeof(connection) == "RBXScriptConnection" and connection.Connected then 
             connection:Disconnect() 
         end
     end
+    
+    -- Clean up ESP
+    for _, highlight in pairs(espHighlights) do
+        if highlight and highlight.Parent then
+            highlight:Destroy()
+        end
+    end
+    
+    -- Remove UI
     if screenGui and screenGui.Parent then
         screenGui:Destroy()
     end
