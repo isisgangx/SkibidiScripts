@@ -233,7 +233,7 @@ local function createUI()
         -- Toggle Background
         local toggleBG = Instance.new("Frame", frame)
         toggleBG.Size = UDim2.new(0, 54, 0, 28)
-        toggleBG.Position = UDim2.new(0.37, 0, 0.9, -30) -- Position at bottom center
+        toggleBG.Position = UDim2.new(0.37, 0, 0.9, -37) -- Position at bottom center
         toggleBG.BackgroundColor3 = Color3.fromRGB(220, 220, 225)
         toggleBG.BorderSizePixel = 0
         
@@ -249,7 +249,7 @@ local function createUI()
         -- Label
         local label = Instance.new("TextLabel", frame)
         label.Size = UDim2.new(0, 200, 0, 20)
-        label.Position = UDim2.new(0.47, 0, 0.9, -26)
+        label.Position = UDim2.new(0.47, 0, 0.9, -33)
         label.Text = toggleData.name
         label.TextColor3 = Color3.fromRGB(80, 80, 80)
         label.BackgroundTransparency = 1
