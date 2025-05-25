@@ -1,0 +1,220 @@
+-- Skrypt do LocalScript, w StarterPlayerScripts
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+-- Parametry
+local rotationSpeed = 360
+local hue = 0
+
+-- UI Setup
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- 15 TextLabels "NIGGER"
+local textLabels = {}
+local textPositions = {}
+local textVelocities = {}
+
+for i = 1, 15 do
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Text = "NIGGER"
+    textLabel.Font = Enum.Font.SourceSansBold
+    textLabel.TextSize = math.random(50, 90) -- różne rozmiary
+    textLabel.Size = UDim2.new(0, 200, 0, 100)
+    textLabel.BackgroundTransparency = 1
+    textLabel.TextColor3 = Color3.new(1, 1, 1)
+    textLabel.TextStrokeTransparency = 0
+    textLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    textLabel.Parent = screenGui
+    
+    table.insert(textLabels, textLabel)
+    
+    -- Losowe pozycje startowe
+    local screenSize = camera.ViewportSize
+    local startPos = Vector2.new(
+        math.random(0, screenSize.X - 200),
+        math.random(0, screenSize.Y - 100)
+    )
+    table.insert(textPositions, startPos)
+    
+    -- Losowe prędkości
+    local velocity = Vector2.new(
+        math.random(150, 300) * (math.random() > 0.5 and 1 or -1),
+        math.random(100, 250) * (math.random() > 0.5 and 1 or -1)
+    )
+    table.insert(textVelocities, velocity)
+end
+
+-- Zmienne do odbijania (w pikselach, nie procentach!)
+local screenSize = camera.ViewportSize
+
+-- Setup oświetlenia świata
+local originalFogColor = Lighting.FogColor
+local originalAmbient = Lighting.Ambient
+local originalBrightness = Lighting.Brightness
+
+-- Setup atmosfery
+local atmosphere = Lighting:FindFirstChild("Atmosphere")
+if not atmosphere then
+    atmosphere = Instance.new("Atmosphere")
+    atmosphere.Parent = Lighting
+end
+
+atmosphere.Density = 0.8
+atmosphere.Offset = 2
+atmosphere.Glare = 2
+atmosphere.Haze = 3
+
+-- 4 ImageLabels odbijające się po ekranie
+local imageLabels = {}
+local imagePositions = {}
+local imageVelocities = {}
+
+for i = 1, 4 do
+    local imageLabel = Instance.new("ImageLabel")
+    imageLabel.Image = "rbxassetid://90106520466204"
+    imageLabel.Size = UDim2.new(0, math.random(80, 150), 0, math.random(80, 150)) -- różne rozmiary
+    imageLabel.BackgroundTransparency = 1
+    imageLabel.Parent = screenGui
+    
+    table.insert(imageLabels, imageLabel)
+    
+    -- Losowe pozycje startowe
+    local screenSize = camera.ViewportSize
+    local startPos = Vector2.new(
+        math.random(0, screenSize.X - 150),
+        math.random(0, screenSize.Y - 150)
+    )
+    table.insert(imagePositions, startPos)
+    
+    -- Losowe prędkości
+    local velocity = Vector2.new(
+        math.random(200, 400) * (math.random() > 0.5 and 1 or -1),
+        math.random(150, 350) * (math.random() > 0.5 and 1 or -1)
+    )
+    table.insert(imageVelocities, velocity)
+end
+
+RunService.Heartbeat:Connect(function(dt)
+    -- Aktualizuj rozmiar ekranu (może się zmienić)
+    screenSize = camera.ViewportSize
+    
+    -- Obrót kamery
+    local angleY = math.rad(rotationSpeed * dt)
+    camera.CFrame = camera.CFrame * CFrame.Angles(0, angleY, 0)
+    
+    -- Zmiana koloru całego świata
+    hue = (hue + dt * 1.5) % 1
+    local worldColor = Color3.fromHSV(hue, 0.8, 1)
+    local secondaryColor = Color3.fromHSV((hue + 0.5) % 1, 0.9, 0.8)
+    
+    -- Kolorowanie świata przez Lighting
+    Lighting.FogColor = worldColor
+    Lighting.Ambient = worldColor
+    Lighting.ColorShift_Bottom = secondaryColor
+    Lighting.ColorShift_Top = worldColor
+    Lighting.OutdoorAmbient = worldColor
+    
+    -- Atmosfera
+    atmosphere.Color = worldColor
+    atmosphere.Decay = secondaryColor
+    
+    -- ODBIJANIE OBRAZKÓW
+    for i = 1, 4 do
+        local imageLabel = imageLabels[i]
+        local imagePos = imagePositions[i]
+        local imageVelocity = imageVelocities[i]
+        
+        -- Ruch obrazka
+        imagePos = imagePos + (imageVelocity * dt)
+        
+        -- Sprawdź kolizje z krawędziami
+        local imageWidth = imageLabel.Size.X.Offset
+        local imageHeight = imageLabel.Size.Y.Offset
+        
+        -- Lewa i prawa krawędź
+        if imagePos.X <= 0 or imagePos.X >= (screenSize.X - imageWidth) then
+            imageVelocity = Vector2.new(-imageVelocity.X, imageVelocity.Y)
+            imagePos = Vector2.new(
+                math.clamp(imagePos.X, 0, screenSize.X - imageWidth),
+                imagePos.Y
+            )
+        end
+        
+        -- Górna i dolna krawędź
+        if imagePos.Y <= 0 or imagePos.Y >= (screenSize.Y - imageHeight) then
+            imageVelocity = Vector2.new(imageVelocity.X, -imageVelocity.Y)
+            imagePos = Vector2.new(
+                imagePos.X,
+                math.clamp(imagePos.Y, 0, screenSize.Y - imageHeight)
+            )
+        end
+        
+        -- Zapisz nowe wartości
+        imagePositions[i] = imagePos
+        imageVelocities[i] = imageVelocity
+        
+        -- Aktualizuj pozycję obrazka
+        imageLabel.Position = UDim2.new(0, imagePos.X, 0, imagePos.Y)
+        
+        -- Obrót obrazka podczas ruchu
+        imageLabel.Rotation = imageLabel.Rotation + (dt * 180)
+        
+        -- Kolorowanie obrazka
+        local individualHue = (hue + (i * 0.25)) % 1
+        local imageColor = Color3.fromHSV(individualHue, 0.8, 1)
+        imageLabel.ImageColor3 = imageColor
+    end
+    
+    -- ODBIJANIE WSZYSTKICH TEKSTÓW
+    for i = 1, 15 do
+        local textLabel = textLabels[i]
+        local textPos = textPositions[i]
+        local textVelocity = textVelocities[i]
+        
+        -- Ruch tekstu
+        textPos = textPos + (textVelocity * dt)
+        
+        -- Sprawdź kolizje z krawędziami
+        local textWidth = 200
+        local textHeight = 100
+        
+        -- Lewa i prawa krawędź
+        if textPos.X <= 0 or textPos.X >= (screenSize.X - textWidth) then
+            textVelocity = Vector2.new(-textVelocity.X, textVelocity.Y)
+            textPos = Vector2.new(
+                math.clamp(textPos.X, 0, screenSize.X - textWidth),
+                textPos.Y
+            )
+        end
+        
+        -- Górna i dolna krawędź
+        if textPos.Y <= 0 or textPos.Y >= (screenSize.Y - textHeight) then
+            textVelocity = Vector2.new(textVelocity.X, -textVelocity.Y)
+            textPos = Vector2.new(
+                textPos.X,
+                math.clamp(textPos.Y, 0, screenSize.Y - textHeight)
+            )
+        end
+        
+        -- Zapisz nowe wartości
+        textPositions[i] = textPos
+        textVelocities[i] = textVelocity
+        
+        -- Aktualizuj pozycję tekstu
+        textLabel.Position = UDim2.new(0, textPos.X, 0, textPos.Y)
+        
+        -- Każdy tekst ma inny kolor
+        local individualHue = (hue + (i * 0.1)) % 1
+        local textColor = Color3.fromHSV(individualHue, 1, 1)
+        textLabel.TextColor3 = textColor
+        
+        -- Pulsujący stroke dla każdego tekstu
+        local strokePulse = math.sin(tick() * 5 + i) * 0.3 + 0.4
+        textLabel.TextStrokeTransparency = strokePulse
+    end
+end)
